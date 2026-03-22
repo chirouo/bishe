@@ -78,6 +78,10 @@ npm run dev
 - 数据库设计说明：[docs/database-design.md](docs/database-design.md)
 - 浏览器级测试报告：[docs/browser-test-report.md](docs/browser-test-report.md)
 - 论文写作素材：[docs/thesis-writing-guide.md](docs/thesis-writing-guide.md)
+- 论文全文草稿：[docs/thesis-full-draft.md](docs/thesis-full-draft.md)
+- 开题报告草稿：[docs/opening-report.md](docs/opening-report.md)
+- 论文初稿目录：[docs/thesis-outline.md](docs/thesis-outline.md)
+- 答辩 PPT 提纲：[docs/defense-ppt-outline.md](docs/defense-ppt-outline.md)
 - 跨平台部署教程：[docs/deployment-guide.md](docs/deployment-guide.md)
 
 ## 测试命令
