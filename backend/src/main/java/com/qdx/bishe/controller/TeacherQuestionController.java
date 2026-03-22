@@ -32,10 +32,9 @@ public class TeacherQuestionController {
     }
 
     @PostMapping
-    public ApiResponse<Long> createSingleChoiceQuestion(
+    public ApiResponse<Long> createQuestion(
             @Validated @RequestBody CreateQuestionRequest request,
             @RequestAttribute("currentUserId") Long currentUserId) {
-        return ApiResponse.success(questionBankService.createSingleChoiceQuestion(request, currentUserId));
+        return ApiResponse.success(questionBankService.createQuestion(request, currentUserId));
     }
 }
-

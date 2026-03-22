@@ -23,7 +23,8 @@ const statusMap = {
 
 const questionTypeMap = {
   SINGLE_CHOICE: '单选题',
-  SHORT_ANSWER: '简答题'
+  SHORT_ANSWER: '简答题',
+  TRUE_FALSE: '判断题'
 }
 
 function formatStatus(status) {
@@ -36,6 +37,17 @@ function formatDateTime(value) {
 
 function formatQuestionType(value) {
   return questionTypeMap[value] || value
+}
+
+function isObjectiveQuestion(questionType) {
+  return questionType === 'SINGLE_CHOICE' || questionType === 'TRUE_FALSE'
+}
+
+function formatOptionText(question, option) {
+  if (question.questionType === 'TRUE_FALSE') {
+    return option.content
+  }
+  return `${option.label}. ${option.content}`
 }
 
 function buildAnswerMap(questions = []) {
@@ -164,7 +176,7 @@ onMounted(() => {
         <p class="question-stem">{{ question.stem }}</p>
 
         <el-radio-group
-          v-if="question.questionType === 'SINGLE_CHOICE'"
+          v-if="isObjectiveQuestion(question.questionType)"
           v-model="answerMap[question.questionId]"
           :disabled="readonlyMode"
           class="option-group"
@@ -175,7 +187,7 @@ onMounted(() => {
             :label="option.label"
             border
           >
-            {{ option.label }}. {{ option.content }}
+            {{ formatOptionText(question, option) }}
           </el-radio>
         </el-radio-group>
 

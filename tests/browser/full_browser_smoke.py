@@ -78,9 +78,13 @@ def set_question_options(dialog, mapping: dict[str, str]) -> None:
         dialog.get_by_placeholder(f"请输入选项 {label}").fill(content)
 
 
-def submit_manual_question(page, unique_stem: str) -> None:
+def expect_row_column_text(row, column_index: int, expected_text: str) -> None:
+    expect(row.locator("td").nth(column_index)).to_contain_text(expected_text, timeout=15000)
+
+
+def submit_manual_single_choice_question(page, unique_stem: str) -> None:
     log("teacher: create manual single-choice question")
-    page.get_by_role("button", name="新增单选题").click()
+    page.get_by_role("button", name="新增题目").click()
     dialog = page.locator(".el-dialog:visible").last
     expect(dialog).to_be_visible(timeout=15000)
 
@@ -99,12 +103,50 @@ def submit_manual_question(page, unique_stem: str) -> None:
     fill_form_input(dialog, "题目解析", "浏览器级测试手动新增题目解析。")
     dialog.get_by_role("button", name="保存题目").click()
     wait_success_message(page, "题目新增成功", timeout=15000)
-    expect(page.locator(".el-table").get_by_text(unique_stem)).to_be_visible(timeout=15000)
+    question_row = page.locator(".el-table__row").filter(has_text=unique_stem).first
+    expect(question_row).to_be_visible(timeout=15000)
+    expect_row_column_text(question_row, 2, "单选题")
+
+
+def submit_manual_short_answer_question(page, unique_stem: str) -> None:
+    log("teacher: create manual short-answer question")
+    page.get_by_role("button", name="新增题目").click()
+    dialog = page.locator(".el-dialog:visible").last
+    expect(dialog).to_be_visible(timeout=15000)
+
+    choose_select_option(page, dialog, "知识点", "集合与关系")
+    choose_select_option(page, dialog, "题型", "简答题")
+    fill_form_input(dialog, "题干", unique_stem)
+    fill_form_input(dialog, "参考答案", "等价关系应满足自反性、对称性和传递性。")
+    fill_form_input(dialog, "题目解析", "浏览器级测试手动新增简答题解析。")
+    dialog.get_by_role("button", name="保存题目").click()
+    wait_success_message(page, "题目新增成功", timeout=15000)
+    question_row = page.locator(".el-table__row").filter(has_text=unique_stem).first
+    expect(question_row).to_be_visible(timeout=15000)
+    expect_row_column_text(question_row, 2, "简答题")
+
+
+def submit_manual_true_false_question(page, unique_stem: str) -> None:
+    log("teacher: create manual true-false question")
+    page.get_by_role("button", name="新增题目").click()
+    dialog = page.locator(".el-dialog:visible").last
+    expect(dialog).to_be_visible(timeout=15000)
+
+    choose_select_option(page, dialog, "知识点", "图论基础")
+    choose_select_option(page, dialog, "题型", "判断题")
+    fill_form_input(dialog, "题干", unique_stem)
+    choose_select_option(page, dialog, "正确答案", "正确")
+    fill_form_input(dialog, "题目解析", "浏览器级测试手动新增判断题解析。")
+    dialog.get_by_role("button", name="保存题目").click()
+    wait_success_message(page, "题目新增成功", timeout=15000)
+    question_row = page.locator(".el-table__row").filter(has_text=unique_stem).first
+    expect(question_row).to_be_visible(timeout=15000)
+    expect_row_column_text(question_row, 2, "判断题")
 
 
 def exercise_ai_question_draft(page) -> None:
     log("teacher: generate AI question draft and switch models")
-    page.get_by_role("button", name="新增单选题").click()
+    page.get_by_role("button", name="新增题目").click()
     dialog = page.locator(".el-dialog:visible").last
     expect(dialog).to_be_visible(timeout=15000)
 
@@ -228,7 +270,9 @@ def assert_teacher_statistics_contains(page, paper_title: str) -> None:
 
 def main() -> int:
     stamp = time.strftime("%Y%m%d%H%M%S")
-    unique_stem = f"浏览器测试单选题 {stamp}"
+    unique_single_choice_stem = f"浏览器测试单选题 {stamp}"
+    unique_short_answer_stem = f"浏览器测试简答题 {stamp}"
+    unique_true_false_stem = f"浏览器测试判断题 {stamp}"
     unique_paper_title = f"浏览器测试试卷 {stamp}"
     console_errors: list[str] = []
     page_errors: list[str] = []
@@ -260,7 +304,9 @@ def main() -> int:
 
             log("teacher: open question bank")
             click_menu(page, "题库管理", "题库管理")
-            submit_manual_question(page, unique_stem)
+            submit_manual_single_choice_question(page, unique_single_choice_stem)
+            submit_manual_short_answer_question(page, unique_short_answer_stem)
+            submit_manual_true_false_question(page, unique_true_false_stem)
             exercise_ai_question_draft(page)
 
             create_ai_paper(page, unique_paper_title)

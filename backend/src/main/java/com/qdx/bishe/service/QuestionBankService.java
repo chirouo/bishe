@@ -9,6 +9,5 @@ public interface QuestionBankService {
 
     List<QuestionListItemDto> listQuestions(Long courseId, Long knowledgePointId, String questionType);
 
-    Long createSingleChoiceQuestion(CreateQuestionRequest request, Long currentUserId);
+    Long createQuestion(CreateQuestionRequest request, Long currentUserId);
 }
-

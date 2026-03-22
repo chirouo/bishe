@@ -42,6 +42,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class StudentExamServiceImpl implements StudentExamService {
 
+    private static final String SINGLE_CHOICE = "SINGLE_CHOICE";
+    private static final String SHORT_ANSWER = "SHORT_ANSWER";
+    private static final String TRUE_FALSE = "TRUE_FALSE";
+
     private final StudentExamMapper studentExamMapper;
     private final PaperMapper paperMapper;
     private final PaperQuestionMapper paperQuestionMapper;
@@ -155,14 +159,16 @@ public class StudentExamServiceImpl implements StudentExamService {
             studentAnswer.setQuestionId(paperQuestion.getQuestionId());
             studentAnswer.setAnswerContent(answerContent);
 
-            if ("SINGLE_CHOICE".equals(question.getQuestionType())) {
+            if (isObjectiveQuestion(question.getQuestionType())) {
                 boolean correct = normalizeChoice(answerContent).equals(normalizeChoice(question.getAnswer()));
                 BigDecimal score = correct ? paperQuestion.getScore() : BigDecimal.ZERO;
                 studentAnswer.setIsCorrect(correct ? 1 : 0);
                 studentAnswer.setScore(score);
-                studentAnswer.setFeedback(correct ? "回答正确" : "标准答案：" + question.getAnswer());
+                studentAnswer.setFeedback(correct
+                        ? "回答正确"
+                        : "标准答案：" + formatObjectiveAnswer(question.getQuestionType(), question.getAnswer()));
                 autoScore = autoScore.add(score);
-            } else if ("SHORT_ANSWER".equals(question.getQuestionType())) {
+            } else if (SHORT_ANSWER.equals(question.getQuestionType())) {
                 AiSubjectiveGradingResultDto gradingResult = aiGradingService.gradeShortAnswer(
                         question,
                         answerContent,
@@ -201,7 +207,7 @@ public class StudentExamServiceImpl implements StudentExamService {
 
     private Map<Long, List<QuestionOptionDto>> buildOptionMap(List<StudentExamQuestionDto> questions) {
         List<Long> objectiveQuestionIds = questions.stream()
-                .filter(question -> "SINGLE_CHOICE".equals(question.getQuestionType()))
+                .filter(question -> isObjectiveQuestion(question.getQuestionType()))
                 .map(StudentExamQuestionDto::getQuestionId)
                 .collect(Collectors.toList());
         if (objectiveQuestionIds.isEmpty()) {
@@ -233,5 +239,16 @@ public class StudentExamServiceImpl implements StudentExamService {
 
     private String normalizeChoice(String value) {
         return value == null ? "" : value.trim().toUpperCase();
+    }
+
+    private boolean isObjectiveQuestion(String questionType) {
+        return SINGLE_CHOICE.equals(questionType) || TRUE_FALSE.equals(questionType);
+    }
+
+    private String formatObjectiveAnswer(String questionType, String answer) {
+        if (TRUE_FALSE.equals(questionType)) {
+            return "TRUE".equals(normalizeChoice(answer)) ? "正确" : "错误";
+        }
+        return answer;
     }
 }

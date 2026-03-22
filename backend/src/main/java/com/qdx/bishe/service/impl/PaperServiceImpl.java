@@ -184,7 +184,7 @@ public class PaperServiceImpl implements PaperService {
         }
 
         List<Long> questionIds = questions.stream()
-                .filter(item -> "SINGLE_CHOICE".equals(item.getQuestionType()))
+                .filter(item -> "SINGLE_CHOICE".equals(item.getQuestionType()) || "TRUE_FALSE".equals(item.getQuestionType()))
                 .map(TeacherPaperQuestionAnswerDto::getQuestionId)
                 .collect(Collectors.toList());
         if (questionIds.isEmpty()) {

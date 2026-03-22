@@ -4,7 +4,6 @@ import lombok.Data;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.util.List;
 
@@ -34,6 +33,5 @@ public class CreateQuestionRequest {
     private String source;
 
     @Valid
-    @NotEmpty(message = "单选题至少需要两个选项")
     private List<CreateQuestionOptionRequest> options;
 }

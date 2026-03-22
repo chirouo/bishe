@@ -2,7 +2,7 @@
 import { reactive, ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { fetchCourses, fetchKnowledgePoints } from '../../api/teacher'
-import { createSingleChoiceQuestion, fetchQuestions, generateAiQuestionDraft } from '../../api/question'
+import { createQuestion, fetchQuestions, generateAiQuestionDraft } from '../../api/question'
 import { fetchAiSettings, switchAiModel } from '../../api/ai'
 
 const loading = ref(false)
@@ -53,7 +53,8 @@ const difficultyMap = {
 
 const questionTypeMap = {
   SINGLE_CHOICE: '单选题',
-  SHORT_ANSWER: '简答题'
+  SHORT_ANSWER: '简答题',
+  TRUE_FALSE: '判断题'
 }
 
 const sourceMap = {
@@ -138,6 +139,33 @@ function resetCreateForm() {
   ]
 }
 
+function resetTypeSpecificFields(questionType) {
+  createForm.aiRequirements = ''
+  if (questionType === 'SINGLE_CHOICE') {
+    createForm.answer = 'A'
+    createForm.options = [
+      { label: 'A', content: '' },
+      { label: 'B', content: '' },
+      { label: 'C', content: '' },
+      { label: 'D', content: '' }
+    ]
+    return
+  }
+
+  if (questionType === 'TRUE_FALSE') {
+    createForm.answer = 'TRUE'
+    createForm.options = []
+    return
+  }
+
+  createForm.answer = ''
+  createForm.options = []
+}
+
+function handleQuestionTypeChange(value) {
+  resetTypeSpecificFields(value)
+}
+
 async function openCreateDialog() {
   resetCreateForm()
   dialogVisible.value = true
@@ -149,7 +177,7 @@ async function openCreateDialog() {
 async function submitCreateForm() {
   submitLoading.value = true
   try {
-    await createSingleChoiceQuestion(createForm)
+    await createQuestion(buildCreatePayload())
     ElMessage.success('题目新增成功')
     dialogVisible.value = false
     await loadQuestions()
@@ -158,7 +186,25 @@ async function submitCreateForm() {
   }
 }
 
+function buildCreatePayload() {
+  return {
+    courseId: createForm.courseId,
+    knowledgePointId: createForm.knowledgePointId,
+    questionType: createForm.questionType,
+    stem: createForm.stem,
+    difficulty: createForm.difficulty,
+    answer: createForm.answer,
+    analysis: createForm.analysis,
+    source: createForm.source,
+    options: createForm.questionType === 'SINGLE_CHOICE' ? createForm.options : []
+  }
+}
+
 async function handleGenerateDraft() {
+  if (createForm.questionType !== 'SINGLE_CHOICE') {
+    ElMessage.warning('AI 草稿当前仅支持单选题')
+    return
+  }
   generateLoading.value = true
   try {
     const result = await generateAiQuestionDraft({
@@ -212,6 +258,20 @@ function formatSource(value) {
   return sourceMap[value] || value
 }
 
+function formatAnswerByType(questionType, answer) {
+  if (questionType === 'TRUE_FALSE') {
+    return answer === 'TRUE' ? '正确' : '错误'
+  }
+  return answer
+}
+
+function formatOptionText(row, option) {
+  if (row.questionType === 'TRUE_FALSE') {
+    return option.content
+  }
+  return `${option.label}. ${option.content}`
+}
+
 onMounted(async () => {
   await loadCourses()
   await loadAiSettings()
@@ -229,7 +289,7 @@ onMounted(async () => {
       <template #header>
         <div class="header-row">
           <span>题库管理</span>
-          <el-button type="primary" @click="openCreateDialog">新增单选题</el-button>
+          <el-button type="primary" @click="openCreateDialog">新增题目</el-button>
         </div>
       </template>
 
@@ -258,6 +318,7 @@ onMounted(async () => {
         <el-select v-model="filters.questionType" placeholder="按题型筛选" clearable @change="loadQuestions">
           <el-option label="单选题" value="SINGLE_CHOICE" />
           <el-option label="简答题" value="SHORT_ANSWER" />
+          <el-option label="判断题" value="TRUE_FALSE" />
         </el-select>
       </div>
 
@@ -277,14 +338,19 @@ onMounted(async () => {
         <el-table-column prop="stem" label="题干" min-width="260" />
         <el-table-column label="选项" min-width="240">
           <template #default="{ row }">
-            <div class="option-list">
+            <div v-if="row.options?.length" class="option-list">
               <span v-for="item in row.options" :key="`${row.id}-${item.label}`">
-                {{ item.label }}. {{ item.content }}
+                {{ formatOptionText(row, item) }}
               </span>
             </div>
+            <span v-else>--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="answer" label="答案" width="80" />
+        <el-table-column label="答案" width="140">
+          <template #default="{ row }">
+            {{ formatAnswerByType(row.questionType, row.answer) }}
+          </template>
+        </el-table-column>
         <el-table-column label="来源" width="120">
           <template #default="{ row }">
             {{ formatSource(row.source) }}
@@ -293,7 +359,7 @@ onMounted(async () => {
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" title="新增单选题" width="720px">
+    <el-dialog v-model="dialogVisible" title="新增题目" width="720px">
       <el-form label-width="110px">
         <el-form-item label="课程">
           <el-select v-model="createForm.courseId" placeholder="请选择课程" @change="handleCreateCourseChange">
@@ -315,6 +381,13 @@ onMounted(async () => {
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="题型">
+          <el-select v-model="createForm.questionType" @change="handleQuestionTypeChange">
+            <el-option label="单选题" value="SINGLE_CHOICE" />
+            <el-option label="简答题" value="SHORT_ANSWER" />
+            <el-option label="判断题" value="TRUE_FALSE" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="题干">
           <el-input v-model="createForm.stem" type="textarea" :rows="3" />
         </el-form-item>
@@ -325,7 +398,7 @@ onMounted(async () => {
             <el-option label="困难" value="HARD" />
           </el-select>
         </el-form-item>
-        <el-form-item label="AI补充要求">
+        <el-form-item v-if="createForm.questionType === 'SINGLE_CHOICE'" label="AI补充要求">
           <el-input
             v-model="createForm.aiRequirements"
             type="textarea"
@@ -333,7 +406,7 @@ onMounted(async () => {
             placeholder="可选，例如：强调定义辨析、避免过难、贴近阶段测试风格"
           />
         </el-form-item>
-        <el-form-item label="AI模型">
+        <el-form-item v-if="createForm.questionType === 'SINGLE_CHOICE'" label="AI模型">
           <el-select
             v-model="aiSettings.currentModel"
             placeholder="请选择模型"
@@ -348,7 +421,7 @@ onMounted(async () => {
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="AI草稿">
+        <el-form-item v-if="createForm.questionType === 'SINGLE_CHOICE'" label="AI草稿">
           <div class="ai-action-row">
             <el-button type="success" plain :loading="generateLoading" @click="handleGenerateDraft">
               AI生成草稿
@@ -356,7 +429,14 @@ onMounted(async () => {
             <span class="ai-tip">当前 provider：{{ aiSettings.provider }}，当前模型：{{ aiSettings.currentModel || '未设置' }}</span>
           </div>
         </el-form-item>
-        <el-form-item label="正确答案">
+        <el-alert
+          v-else
+          title="当前 AI 草稿仅支持单选题；简答题和判断题请手动录入。"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+        <el-form-item v-if="createForm.questionType === 'SINGLE_CHOICE'" label="正确答案">
           <el-select v-model="createForm.answer">
             <el-option label="A" value="A" />
             <el-option label="B" value="B" />
@@ -364,16 +444,38 @@ onMounted(async () => {
             <el-option label="D" value="D" />
           </el-select>
         </el-form-item>
+        <el-form-item v-else-if="createForm.questionType === 'TRUE_FALSE'" label="正确答案">
+          <el-select v-model="createForm.answer">
+            <el-option label="正确" value="TRUE" />
+            <el-option label="错误" value="FALSE" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-else label="参考答案">
+          <el-input
+            v-model="createForm.answer"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入参考答案、评分要点或关键术语"
+          />
+        </el-form-item>
         <el-form-item label="题目解析">
           <el-input v-model="createForm.analysis" type="textarea" :rows="2" />
         </el-form-item>
-        <el-form-item label="选项">
+        <el-form-item v-if="createForm.questionType === 'SINGLE_CHOICE'" label="选项">
           <div class="option-form-list">
             <div v-for="option in createForm.options" :key="option.label" class="option-form-item">
               <span class="option-label">{{ option.label }}</span>
               <el-input v-model="option.content" :placeholder="`请输入选项 ${option.label}`" />
             </div>
           </div>
+        </el-form-item>
+        <el-form-item v-else-if="createForm.questionType === 'TRUE_FALSE'" label="选项说明">
+          <el-alert
+            title="判断题会自动保存固定选项：正确 / 错误。"
+            type="success"
+            :closable="false"
+            show-icon
+          />
         </el-form-item>
       </el-form>
       <template #footer>

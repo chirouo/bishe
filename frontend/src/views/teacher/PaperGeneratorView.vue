@@ -41,7 +41,8 @@ const form = reactive({
 
 const questionTypeMap = {
   SINGLE_CHOICE: '单选题',
-  SHORT_ANSWER: '简答题'
+  SHORT_ANSWER: '简答题',
+  TRUE_FALSE: '判断题'
 }
 
 const paperStatusMap = {

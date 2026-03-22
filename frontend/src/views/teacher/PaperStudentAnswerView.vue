@@ -30,10 +30,37 @@ function formatQuestionType(value) {
   if (value === 'SINGLE_CHOICE') {
     return '单选题'
   }
+  if (value === 'TRUE_FALSE') {
+    return '判断题'
+  }
   if (value === 'SHORT_ANSWER') {
     return '简答题'
   }
   return value
+}
+
+function formatOptionText(question, option) {
+  if (question.questionType === 'TRUE_FALSE') {
+    return option.content
+  }
+  return `${option.label}. ${option.content}`
+}
+
+function formatCorrectAnswer(question) {
+  if (question.questionType === 'TRUE_FALSE') {
+    return question.correctAnswer === 'TRUE' ? '正确' : '错误'
+  }
+  return question.correctAnswer || '无'
+}
+
+function formatStudentAnswer(question) {
+  if (!question.studentAnswer) {
+    return '未作答'
+  }
+  if (question.questionType === 'TRUE_FALSE') {
+    return question.studentAnswer === 'TRUE' ? '正确' : '错误'
+  }
+  return question.studentAnswer
 }
 
 function goBack() {
@@ -101,13 +128,13 @@ onMounted(() => {
 
       <div v-if="question.options?.length" class="option-list">
         <div v-for="option in question.options" :key="`${question.questionId}-${option.label}`" class="option-item">
-          {{ option.label }}. {{ option.content }}
+          {{ formatOptionText(question, option) }}
         </div>
       </div>
 
       <el-descriptions :column="1" border>
-        <el-descriptions-item label="学生答案">{{ question.studentAnswer || '未作答' }}</el-descriptions-item>
-        <el-descriptions-item label="标准答案">{{ question.correctAnswer || '无' }}</el-descriptions-item>
+        <el-descriptions-item label="学生答案">{{ formatStudentAnswer(question) }}</el-descriptions-item>
+        <el-descriptions-item label="标准答案">{{ formatCorrectAnswer(question) }}</el-descriptions-item>
         <el-descriptions-item label="教师/系统反馈">{{ question.feedback || '暂无反馈' }}</el-descriptions-item>
       </el-descriptions>
     </el-card>

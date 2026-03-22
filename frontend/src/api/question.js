@@ -10,7 +10,7 @@ export function fetchQuestions(params) {
   })
 }
 
-export function createSingleChoiceQuestion(data) {
+export function createQuestion(data) {
   return request({
     url: '/teacher/questions',
     method: 'post',

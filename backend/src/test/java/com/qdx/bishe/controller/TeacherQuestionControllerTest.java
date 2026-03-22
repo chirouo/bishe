@@ -72,6 +72,70 @@ class TeacherQuestionControllerTest {
     }
 
     @Test
+    void shouldCreateShortAnswerQuestion() throws Exception {
+        String requestBody = "{"
+                + "\"courseId\":101,"
+                + "\"knowledgePointId\":202,"
+                + "\"questionType\":\"SHORT_ANSWER\","
+                + "\"stem\":\"请说明等价关系需要满足的三个性质。\","
+                + "\"difficulty\":\"MEDIUM\","
+                + "\"answer\":\"自反、对称、传递。\","
+                + "\"analysis\":\"用于考查关系性质定义。\""
+                + "}";
+
+        mockMvc.perform(post("/api/teacher/questions")
+                        .header("Authorization", bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isNumber());
+
+        mockMvc.perform(get("/api/teacher/questions")
+                        .param("courseId", "101")
+                        .param("questionType", "SHORT_ANSWER")
+                        .header("Authorization", bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].questionType").value("SHORT_ANSWER"))
+                .andExpect(jsonPath("$.data[0].stem").value("请说明等价关系需要满足的三个性质。"))
+                .andExpect(jsonPath("$.data[0].options.length()").value(0));
+    }
+
+    @Test
+    void shouldCreateTrueFalseQuestionWithFixedOptions() throws Exception {
+        String requestBody = "{"
+                + "\"courseId\":101,"
+                + "\"knowledgePointId\":201,"
+                + "\"questionType\":\"TRUE_FALSE\","
+                + "\"stem\":\"若关系 R 是偏序关系，则 R 必定是自反关系。\","
+                + "\"difficulty\":\"EASY\","
+                + "\"answer\":\"正确\","
+                + "\"analysis\":\"偏序关系定义要求具备自反性。\""
+                + "}";
+
+        mockMvc.perform(post("/api/teacher/questions")
+                        .header("Authorization", bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isNumber());
+
+        mockMvc.perform(get("/api/teacher/questions")
+                        .param("courseId", "101")
+                        .param("questionType", "TRUE_FALSE")
+                        .header("Authorization", bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].questionType").value("TRUE_FALSE"))
+                .andExpect(jsonPath("$.data[0].answer").value("TRUE"))
+                .andExpect(jsonPath("$.data[0].options.length()").value(2))
+                .andExpect(jsonPath("$.data[0].options[0].label").value("FALSE"))
+                .andExpect(jsonPath("$.data[0].options[0].content").value("错误"))
+                .andExpect(jsonPath("$.data[0].options[1].label").value("TRUE"))
+                .andExpect(jsonPath("$.data[0].options[1].content").value("正确"));
+    }
+
+    @Test
     void shouldRejectQuestionWhenAnswerNotInOptions() throws Exception {
         String requestBody = "{"
                 + "\"courseId\":101,"
@@ -96,6 +160,26 @@ class TeacherQuestionControllerTest {
     }
 
     @Test
+    void shouldRejectTrueFalseQuestionWhenAnswerIsInvalid() throws Exception {
+        String requestBody = "{"
+                + "\"courseId\":101,"
+                + "\"knowledgePointId\":201,"
+                + "\"questionType\":\"TRUE_FALSE\","
+                + "\"stem\":\"测试非法判断题答案\","
+                + "\"difficulty\":\"EASY\","
+                + "\"answer\":\"未知\""
+                + "}";
+
+        mockMvc.perform(post("/api/teacher/questions")
+                        .header("Authorization", bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("判断题答案只能是正确或错误"));
+    }
+
+    @Test
     void shouldRejectRequestWithoutToken() throws Exception {
         mockMvc.perform(get("/api/teacher/questions"))
                 .andExpect(status().isUnauthorized());
@@ -105,4 +189,3 @@ class TeacherQuestionControllerTest {
         return "Bearer " + jwtUtils.generateToken(1L, "TEACHER");
     }
 }
-

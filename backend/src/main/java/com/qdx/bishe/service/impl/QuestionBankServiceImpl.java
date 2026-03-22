@@ -32,6 +32,8 @@ import java.util.stream.Collectors;
 public class QuestionBankServiceImpl implements QuestionBankService {
 
     private static final String SINGLE_CHOICE = "SINGLE_CHOICE";
+    private static final String SHORT_ANSWER = "SHORT_ANSWER";
+    private static final String TRUE_FALSE = "TRUE_FALSE";
 
     private final QuestionMapper questionMapper;
     private final QuestionOptionMapper questionOptionMapper;
@@ -67,11 +69,7 @@ public class QuestionBankServiceImpl implements QuestionBankService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long createSingleChoiceQuestion(CreateQuestionRequest request, Long currentUserId) {
-        if (!SINGLE_CHOICE.equals(request.getQuestionType())) {
-            throw new BusinessException("当前版本仅支持新增单选题");
-        }
-
+    public Long createQuestion(CreateQuestionRequest request, Long currentUserId) {
         Course course = courseMapper.selectById(request.getCourseId());
         if (course == null || course.getStatus() == null || course.getStatus() != 1) {
             throw new BusinessException("课程不存在或已停用");
@@ -82,26 +80,14 @@ public class QuestionBankServiceImpl implements QuestionBankService {
             throw new BusinessException("知识点不存在或不属于当前课程");
         }
 
-        Set<String> labels = new LinkedHashSet<>();
-        for (CreateQuestionOptionRequest option : request.getOptions()) {
-            labels.add(normalizeLabel(option.getLabel()));
-        }
-        if (labels.size() != request.getOptions().size()) {
-            throw new BusinessException("选项标识不能重复");
-        }
-        if (labels.size() < 2) {
-            throw new BusinessException("单选题至少需要两个有效选项");
-        }
-
-        String answer = normalizeLabel(request.getAnswer());
-        if (!labels.contains(answer)) {
-            throw new BusinessException("答案必须出现在选项标识中");
-        }
+        String questionType = normalizeQuestionType(request.getQuestionType());
+        String answer = normalizeAnswerByType(questionType, request.getAnswer());
+        List<QuestionOption> optionEntities = buildQuestionOptions(questionType, request.getOptions(), answer);
 
         Question question = new Question();
         question.setCourseId(request.getCourseId());
         question.setKnowledgePointId(request.getKnowledgePointId());
-        question.setQuestionType(request.getQuestionType());
+        question.setQuestionType(questionType);
         question.setStem(request.getStem());
         question.setDifficulty(request.getDifficulty());
         question.setAnswer(answer);
@@ -110,22 +96,95 @@ public class QuestionBankServiceImpl implements QuestionBankService {
         question.setCreatedBy(currentUserId);
         questionMapper.insert(question);
 
-        List<QuestionOption> optionEntities = request.getOptions().stream()
+        optionEntities.forEach(option -> {
+            option.setQuestionId(question.getId());
+            questionOptionMapper.insert(option);
+        });
+        return question.getId();
+    }
+
+    private String normalizeQuestionType(String questionType) {
+        if (questionType == null) {
+            throw new BusinessException("题型不能为空");
+        }
+        String normalized = questionType.trim().toUpperCase(Locale.ROOT);
+        if (SINGLE_CHOICE.equals(normalized) || SHORT_ANSWER.equals(normalized) || TRUE_FALSE.equals(normalized)) {
+            return normalized;
+        }
+        throw new BusinessException("题型不合法");
+    }
+
+    private String normalizeAnswerByType(String questionType, String answer) {
+        if (SINGLE_CHOICE.equals(questionType)) {
+            return normalizeLabel(answer);
+        }
+        if (TRUE_FALSE.equals(questionType)) {
+            return normalizeTrueFalseAnswer(answer);
+        }
+        return answer == null ? "" : answer.trim();
+    }
+
+    private List<QuestionOption> buildQuestionOptions(String questionType,
+                                                      List<CreateQuestionOptionRequest> options,
+                                                      String answer) {
+        if (SHORT_ANSWER.equals(questionType)) {
+            return new ArrayList<>();
+        }
+
+        if (TRUE_FALSE.equals(questionType)) {
+            QuestionOption trueOption = new QuestionOption();
+            trueOption.setOptionLabel("TRUE");
+            trueOption.setOptionContent("正确");
+
+            QuestionOption falseOption = new QuestionOption();
+            falseOption.setOptionLabel("FALSE");
+            falseOption.setOptionContent("错误");
+
+            List<QuestionOption> result = new ArrayList<>();
+            result.add(trueOption);
+            result.add(falseOption);
+            return result;
+        }
+
+        List<CreateQuestionOptionRequest> safeOptions = options == null ? new ArrayList<>() : options;
+        Set<String> labels = new LinkedHashSet<>();
+        for (CreateQuestionOptionRequest option : safeOptions) {
+            labels.add(normalizeLabel(option.getLabel()));
+        }
+        if (labels.size() != safeOptions.size()) {
+            throw new BusinessException("选项标识不能重复");
+        }
+        if (labels.size() < 2) {
+            throw new BusinessException("单选题至少需要两个有效选项");
+        }
+
+        if (!labels.contains(answer)) {
+            throw new BusinessException("答案必须出现在选项标识中");
+        }
+
+        return safeOptions.stream()
                 .map(option -> {
                     QuestionOption entity = new QuestionOption();
-                    entity.setQuestionId(question.getId());
                     entity.setOptionLabel(normalizeLabel(option.getLabel()));
                     entity.setOptionContent(option.getContent());
                     return entity;
                 })
                 .collect(Collectors.toList());
-
-        optionEntities.forEach(questionOptionMapper::insert);
-        return question.getId();
     }
 
     private String normalizeLabel(String label) {
         return label == null ? "" : label.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeTrueFalseAnswer(String answer) {
+        String normalized = answer == null ? "" : answer.trim().toUpperCase(Locale.ROOT);
+        if ("TRUE".equals(normalized) || "正确".equals(normalized)) {
+            return "TRUE";
+        }
+        if ("FALSE".equals(normalized) || "错误".equals(normalized)) {
+            return "FALSE";
+        }
+        throw new BusinessException("判断题答案只能是正确或错误");
     }
 
     private String resolveSource(String source) {
