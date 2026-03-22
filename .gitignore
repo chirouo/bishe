@@ -1,0 +1,13 @@
+backend/target/
+backend/.mvn/repository/
+backend/cp.txt
+frontend/node_modules/
+frontend/dist/
+*localRepository/
+tests/browser/artifacts/
+**/__pycache__/
+.pytest_cache/
+.idea/
+.vscode/
+*.iml
+.DS_Store
